@@ -5,7 +5,8 @@ const routes = [
     children: [
       { path: '', redirect: 'home' },
       { path: 'home', component: () => import('pages/IndexPage.vue') },
-      { path: 'api-data', component: () => import('pages/ApiDataPage.vue') }
+      { path: 'api-data', component: () => import('pages/ApiDataPage.vue') },
+      { path: 'capacitor', component: () => import('pages/CapacitorPage.vue') },
     ],
   },
 

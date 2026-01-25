@@ -1,18 +1,16 @@
 <template>
   <q-page class="q-pa-md">
-      <h3>API Data Page</h3>
-      <q-btn color="primary" icon="check" label="Fetch Data" @click="onClick" :loading="loading" />
-      <div v-if="data" class="q-mt-md">
-        <q-card>
-          <q-card-section>
-            <div class="text-h6">Response from API:</div>
-            <pre>{{ data }}</pre>
-          </q-card-section>
-        </q-card>
-      </div>
-      <div v-if="error" class="q-mt-md text-negative">
-        Error: {{ error }}
-      </div>
+    <h3>API Data Page</h3>
+    <q-btn color="primary" icon="check" label="Fetch Data" @click="onClick" :loading="loading" />
+    <div v-if="data" class="q-mt-md">
+      <q-card>
+        <q-card-section>
+          <div class="text-h6">Response from API:</div>
+          <pre>{{ data }}</pre>
+        </q-card-section>
+      </q-card>
+    </div>
+    <div v-if="error" class="q-mt-md text-negative">Error: {{ error }}</div>
   </q-page>
 </template>
 

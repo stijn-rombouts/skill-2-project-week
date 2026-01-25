@@ -17,14 +17,23 @@ quasar dev
 ```
 
 ## Material Icons
+
 [Material Icons](https://fonts.google.com/icons?icon.set=Material+Icons)
 [Additional Icon Libraries](https://quasar.dev/options/installing-icon-libraries)
 
 ## Andoid development
+
 [Quasar Docs Capacitor Mode]()
+
 ```
 # Run andoid studio
 quasar dev -m capacitor -T android
+# We are using capacitor v7 for this project
+# Install capacitor plugin
+cd src-capacitor
+npm install @capacitor/filesystem@latest-7
+# Sync
+npx cap sync android
 ```
 
 ### Lint the files
