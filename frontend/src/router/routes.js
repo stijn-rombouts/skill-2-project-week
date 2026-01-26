@@ -29,6 +29,19 @@ const routes = [
         component: () => import('pages/PatientDashboard.vue'),
         meta: { requiresAuth: true, role: 'patient' }
       },
+      
+      // Zorgverlener routes
+      { 
+        path: 'zorgverlener/dashboard', 
+        component: () => import('pages/ZorgverlenerDashboard.vue'),
+        meta: { requiresAuth: true, role: 'zorgverlener' }
+      },
+      // Medications route
+      {
+        path: 'medications',
+        component: () => import('pages/MedicationPage.vue'),
+        meta: { requiresAuth: true }
+      }
     ],
   },
 

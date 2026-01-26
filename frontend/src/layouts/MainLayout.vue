@@ -42,17 +42,40 @@
             </q-item-section>
             <q-item-section>Patient Overview</q-item-section>
           </q-item>
+          <q-item clickable v-ripple to="/medications">
+            <q-item-section avatar>
+              <q-avatar color="primary" text-color="white" icon="medical_information" />
+            </q-item-section>
+            <q-item-section>Medications</q-item-section>
+          </q-item>
+        </template>
+
+        <!-- Zorgverlener specific links -->
+        <template v-if="userRole === 'zorgverlener'">
+          <q-item-label header> Zorgverlener </q-item-label>
+          <q-item clickable v-ripple to="/zorgverlener/dashboard">
+            <q-item-section avatar>
+              <q-avatar color="primary" text-color="white" icon="dashboard" />
+            </q-item-section>
+            <q-item-section>Dashboard</q-item-section>
+          </q-item>
+          <q-item clickable v-ripple to="/api-data">
+            <q-item-section avatar>
+              <q-avatar color="primary" text-color="white" icon="people" />
+            </q-item-section>
+            <q-item-section>Patient Overview</q-item-section>
+          </q-item>
         </template>
 
         <!-- Patient specific links -->
         <template v-if="userRole === 'patient'">
           <q-item-label header> Patient </q-item-label>
           <q-item clickable v-ripple to="/home">
-          <q-item-section avatar>
-            <q-avatar color="teal" text-color="white" icon="home" />
-          </q-item-section>
-          <q-item-section>Home</q-item-section>
-        </q-item>
+            <q-item-section avatar>
+              <q-avatar color="teal" text-color="white" icon="home" />
+            </q-item-section>
+            <q-item-section>Home</q-item-section>
+          </q-item>
           <q-item clickable v-ripple to="/patient/dashboard">
             <q-item-section avatar>
               <q-avatar color="secondary" text-color="white" icon="dashboard" />

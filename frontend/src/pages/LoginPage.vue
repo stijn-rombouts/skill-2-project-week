@@ -1,5 +1,8 @@
 <template>
-  <div class="fullscreen flex flex-center" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)">
+  <div
+    class="fullscreen flex flex-center"
+    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+  >
     <q-card style="width: 400px; max-width: 90vw">
       <q-card-section>
         <div class="text-h6">Login</div>
@@ -90,11 +93,13 @@ async function onSubmit() {
     // })
     console.log('Login successful')
     // Wait a bit for the store to update, then redirect based on role
-    await new Promise(resolve => setTimeout(resolve, 100))
-    
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
     const role = authStore.userRole
     if (role === 'mantelzorger') {
       await router.push('/mantelzorger/dashboard')
+    } else if (role === 'zorgverlener') {
+      await router.push('/zorgverlener/dashboard')
     } else if (role === 'patient') {
       await router.push('/home')
     } else {

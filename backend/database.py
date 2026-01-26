@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Boolean, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Float, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -36,6 +36,7 @@ class User(Base):
     # Mantelzorger can have multiple patients
     patients = relationship("User", remote_side=[id], backref="mantelzorger")
     medications = relationship("Medication", back_populates="user")
+    medications = relationship("Medication", back_populates="patient")
 
 
 class Medication(Base):
@@ -50,6 +51,16 @@ class Medication(Base):
     date = Column(DateTime, default=datetime.utcnow)
     
     user = relationship("User", back_populates="medications")
+    patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    dosage = Column(String, nullable=False)  # e.g., "500mg", "2 tablets"
+    frequency = Column(String, nullable=False)  # e.g., "twice daily", "every 8 hours"
+    start_date = Column(DateTime, default=datetime.now, nullable=False)
+    end_date = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    
+    patient = relationship("User", back_populates="medications")
 
 
 def get_db():
