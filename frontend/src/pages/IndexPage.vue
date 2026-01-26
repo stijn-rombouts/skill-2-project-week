@@ -24,6 +24,9 @@
     <div class="q-mt-lg">
       <q-btn color="secondary" label="Test Notification 2" @click="testNotification2" />
     </div>
+    <div class="q-mt-lg">
+      <q-btn color="accent" label="Test Notification with TTS" @click="testNotificationWithTTS" />
+    </div>
 
     <div v-if="statusMessage" class="q-mt-md text-center">
       {{ statusMessage }}
@@ -50,12 +53,13 @@ onMounted(async () => {
   if (Capacitor.isNativePlatform()) {
     console.log('App mounted on native platform')
     
-    // Add listener for notification actions
+    // Add listener for notification actions (taps)
     notificationListener = await LocalNotifications.addListener(
       'localNotificationActionPerformed',
       (notification) => {
         console.log('Notification action performed:', notification)
-        // Check if the notification has the medication action
+        
+        // Navigate when notification is tapped
         if (notification.notification.extra?.action === 'view_medication') {
           router.push('/patient-take-medication')
         }
@@ -138,6 +142,10 @@ async function scheduleNotificationsFromAPI() {
                   title: 'Medication Reminder',
                   body: `Time to take ${medication.name} - ${medication.dosage}`,
                   schedule: { at: scheduledDate },
+                  channelId: 'medication-reminders',
+                  sound: 'medication_reminder.wav',
+                  attachments: undefined,
+                  actionTypeId: '',
                   extra: { action: 'view_medication' },
                 })
               }
@@ -207,7 +215,7 @@ async function testNotification() {
             id: Math.floor(Math.random() * 10000),
             title: 'Test Notification',
             body: `Sent at ${now.toLocaleTimeString()}`,
-            schedule: { at: new Date(Date.now() + 1000) },
+            schedule: { at: new Date(Date.now() + 30000) },
             sound: undefined,
             attachments: undefined,
             actionTypeId: '',
@@ -215,7 +223,7 @@ async function testNotification() {
           },
         ],
       })
-      statusMessage.value = 'Test notification scheduled!'
+      statusMessage.value = 'Test notification scheduled for 30 seconds!'
       console.log('Test notification sent')
     } else {
       statusMessage.value = 'Permission denied'
@@ -246,7 +254,7 @@ async function testNotification2() {
             id: Math.floor(Math.random() * 10000),
             title: 'Medication Reminder',
             body: 'It\'s time to take your medication! Tap to view details.',
-            schedule: { at: new Date(Date.now() + 1000) },
+            schedule: { at: new Date(Date.now() + 30000) },
             sound: undefined,
             attachments: undefined,
             actionTypeId: '',
@@ -254,13 +262,73 @@ async function testNotification2() {
           },
         ],
       })
-      statusMessage.value = 'Medication notification scheduled! It will appear in 1 second.'
+      statusMessage.value = 'Medication notification scheduled! It will appear in 30 seconds.'
       console.log('Medication notification sent with click action')
     } else {
       statusMessage.value = 'Permission denied'
     }
   } catch (error) {
     console.error('Error sending medication notification:', error)
+    statusMessage.value = 'Error: ' + error.message
+  }
+}
+
+async function testNotificationWithTTS() {
+  if (!Capacitor.isNativePlatform()) {
+    statusMessage.value = 'Notifications only work on mobile devices'
+    return
+  }
+
+  try {
+    // Check/request permission first
+    let permission = await LocalNotifications.checkPermissions()
+    if (permission.display !== 'granted') {
+      permission = await LocalNotifications.requestPermissions()
+    }
+
+    if (permission.display === 'granted') {
+      // Create a notification channel with sound (required for Android 8+)
+      try {
+        await LocalNotifications.createChannel({
+          id: 'medication-reminders',
+          name: 'Medication Reminders',
+          description: 'Notifications for medication reminders',
+          importance: 5, // High importance
+          sound: 'medication_reminder.wav',
+          visibility: 1,
+          vibration: true,
+        })
+        console.log('Notification channel created with sound')
+      } catch (channelError) {
+        console.error('Error creating channel:', channelError)
+      }
+
+      // Schedule notification with audio file (plays even when app is closed)
+      await LocalNotifications.schedule({
+        notifications: [
+          {
+            id: Math.floor(Math.random() * 10000),
+            title: 'Medication Reminder with Audio',
+            body: 'It is time to take your medication. Please check your phone for details.',
+            schedule: { at: new Date(Date.now() + 1000) },
+            channelId: 'medication-reminders', // Use the channel with sound
+            sound: 'medication_reminder.wav',
+            attachments: undefined,
+            actionTypeId: '',
+            extra: { 
+              action: 'view_medication'
+            },
+          },
+        ],
+      })
+
+      statusMessage.value = 'Notification with audio scheduled for 1 second! Audio will play when it appears.'
+      console.log('Notification with audio sent')
+    } else {
+      statusMessage.value = 'Permission denied'
+    }
+  } catch (error) {
+    console.error('Error sending notification with audio:', error)
     statusMessage.value = 'Error: ' + error.message
   }
 }
