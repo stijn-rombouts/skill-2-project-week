@@ -29,6 +29,13 @@ const routes = [
         component: () => import('pages/PatientDashboard.vue'),
         meta: { requiresAuth: true, role: 'patient' }
       },
+      
+      // Medications route
+      {
+        path: 'medications',
+        component: () => import('pages/MedicationPage.vue'),
+        meta: { requiresAuth: true }
+      }
     ],
   },
 
