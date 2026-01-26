@@ -47,7 +47,7 @@ export default defineConfig((/* ctx */) => {
       // publicPath: '/',
       // analyze: true,
       env: {
-        API_ENDPOINT_DEV: 'http://127.0.0.1:8000',
+        API_ENDPOINT_DEV: 'http://localhost:8000',
         API_ENDPOINT_PROD: 'https://api.example.com',
       },
       // rawDefine: {}
