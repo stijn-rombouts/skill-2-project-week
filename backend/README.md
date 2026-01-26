@@ -11,7 +11,7 @@ A simple FastAPI backend application.
 cd backend
 
 # Create a virtual environment
-ython3 -m venv .venv
+python3 -m venv .venv
 
 # Activate the virtual environment
 # On Linux/Mac:
