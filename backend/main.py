@@ -2,9 +2,10 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, datetime
+from pydantic import BaseModel
 
-from database import init_db, get_db, User, Role
+from database import init_db, get_db, User, Role, Medication
 from auth import (
     authenticate_user, 
     create_access_token, 
@@ -12,6 +13,7 @@ from auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     get_current_user
 )
+from medication_checker import check_missed_medications, mark_medication_taken, get_patient_medications
 
 app = FastAPI()
 
@@ -147,3 +149,99 @@ async def read_users_me(current_user: User = Depends(get_current_user)):
         "username": current_user.username,
         "role": current_user.role.name
     }
+
+
+# Pydantic models for medication endpoints
+class MedicationCreate(BaseModel):
+    name: str
+    scheduled_time: str  # Format: "HH:MM"
+
+
+class MedicationResponse(BaseModel):
+    id: int
+    name: str
+    scheduled_time: str
+    taken: bool
+    date: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# Medication endpoints
+@app.post("/api/medications/create")
+async def create_medication(
+    med: MedicationCreate,
+    patient_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Create a medication reminder (mantelzorger only)
+    """
+    if current_user.role.name != "mantelzorger":
+        raise HTTPException(status_code=403, detail="Only mantelzorgers can create medications")
+    
+    # Check if user is the mantelzorger for this patient
+    patient = db.query(User).filter(User.id == patient_id).first()
+    if not patient or patient.mantelzorger_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to manage this patient")
+    
+    medication = Medication(
+        user_id=patient_id,
+        name=med.name,
+        scheduled_time=med.scheduled_time,
+        date=datetime.utcnow()
+    )
+    db.add(medication)
+    db.commit()
+    db.refresh(medication)
+    
+    return MedicationResponse.from_orm(medication)
+
+
+@app.get("/api/medications/{patient_id}")
+async def get_medications(
+    patient_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get medications for a patient
+    """
+    meds = get_patient_medications(db, patient_id)
+    return [MedicationResponse.from_orm(m) for m in meds]
+
+
+@app.post("/api/medications/{medication_id}/taken")
+async def medication_taken(
+    medication_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Mark a medication as taken (patient only)
+    """
+    if current_user.role.name != "patient":
+        raise HTTPException(status_code=403, detail="Only patients can mark medications as taken")
+    
+    med = db.query(Medication).filter(Medication.id == medication_id).first()
+    if not med:
+        raise HTTPException(status_code=404, detail="Medication not found")
+    
+    if med.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    mark_medication_taken(db, medication_id)
+    
+    return {"message": "Medication marked as taken"}
+
+
+@app.post("/api/check-missed-medications")
+async def check_missed(db: Session = Depends(get_db)):
+    """
+    Check for missed medications and send emails to mantelzorgers
+    This should be called by a scheduler
+    """
+    check_missed_medications(db)
+    return {"message": "Medication check completed"}

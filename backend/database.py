@@ -1,6 +1,7 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
+from datetime import datetime
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./app.db"
 
@@ -26,9 +27,29 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=True)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
     
     role = relationship("Role", back_populates="users")
+    # Patient can have one mantelzorger
+    mantelzorger_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # Mantelzorger can have multiple patients
+    patients = relationship("User", remote_side=[id], backref="mantelzorger")
+    medications = relationship("Medication", back_populates="user")
+
+
+class Medication(Base):
+    __tablename__ = "medications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    scheduled_time = Column(String, nullable=False)
+    taken = Column(Boolean, default=False)
+    taken_at = Column(DateTime, nullable=True)
+    date = Column(DateTime, default=datetime.utcnow)
+    
+    user = relationship("User", back_populates="medications")
 
 
 def get_db():
