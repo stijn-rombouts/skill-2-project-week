@@ -139,8 +139,8 @@ async function scheduleNotificationsFromAPI() {
                 console.log(`Scheduling notification for ${medication.name} at ${scheduledDate}`)
                 notifications.push({
                   id: Math.floor(Math.random() * 1000000),
-                  title: 'Medication Reminder',
-                  body: `Time to take ${medication.name} - ${medication.dosage}`,
+                  title: 'Medicatie Herinnering',
+                  body: `Medicatie in te nemen: ${medication.name} - ${medication.dosage}`,
                   schedule: { at: scheduledDate },
                   channelId: 'medication-reminders',
                   sound: 'medication_reminder.wav',
