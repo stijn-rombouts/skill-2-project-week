@@ -16,7 +16,38 @@ if (process.env.NODE_ENV === 'development') {
 console.log('API_ENDPOINT is set to:', API_ENDPOINT)
 const api = axios.create({ baseURL: API_ENDPOINT })
 
-export default defineBoot(({ app }) => {
+export { api }
+
+export default defineBoot(({ app, router }) => {
+  // Add request interceptor to include JWT token
+  api.interceptors.request.use(
+    (config) => {
+      const token = localStorage.getItem('token')
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+      }
+      return config
+    },
+    (error) => {
+      return Promise.reject(error)
+    }
+  )
+
+  // Add response interceptor to handle 401 errors
+  api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error.response?.status === 401) {
+        // Clear auth data
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        // Redirect to login
+        router.push('/login')
+      }
+      return Promise.reject(error)
+    }
+  )
+
   // for use inside Vue files (Options API) through this.$axios and this.$api
 
   app.config.globalProperties.$axios = axios
@@ -27,5 +58,3 @@ export default defineBoot(({ app }) => {
   // ^ ^ ^ this will allow you to use this.$api (for Vue Options API form)
   //       so you can easily perform requests against your app's API
 })
-
-export { api }

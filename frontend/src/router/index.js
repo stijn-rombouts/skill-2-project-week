@@ -6,6 +6,7 @@ import {
   createWebHashHistory,
 } from 'vue-router'
 import routes from './routes'
+import { useAuthStore } from 'stores/auth-store'
 
 /*
  * If not building with SSR mode, you can
@@ -31,6 +32,27 @@ export default defineRouter(function (/* { store, ssrContext } */) {
     // quasar.conf.js -> build -> vueRouterMode
     // quasar.conf.js -> build -> publicPath
     history: createHistory(process.env.VUE_ROUTER_BASE),
+  })
+
+  // Navigation guard for authentication
+  Router.beforeEach((to, from, next) => {
+    const authStore = useAuthStore()
+    
+    const requiresAuth = to.matched.some((record) => record.meta.requiresAuth)
+    const isAuthenticated = authStore.isAuthenticated
+
+    if (requiresAuth && !isAuthenticated) {
+      // Redirect to login if route requires auth and user is not authenticated
+      next('/login')
+    } else if (to.path === '/login' && isAuthenticated) {
+      // Redirect to home if already logged in and trying to access login
+      next('/home')
+    } else if (to.meta.role && to.meta.role !== authStore.userRole) {
+      // Check if route requires specific role
+      next('/home') // Redirect to home if user doesn't have the required role
+    } else {
+      next()
+    }
   })
 
   return Router
