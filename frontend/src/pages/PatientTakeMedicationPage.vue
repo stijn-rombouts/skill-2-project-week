@@ -1,7 +1,7 @@
 <template>
   <q-page class="q-pa-md">
     <div class="row items-center q-mb-lg">
-      <h4 class="q-my-none">Take Medication</h4>
+      <h4 class="q-my-none">Medicatie Innemen</h4>
     </div>
 
     <!-- Loading state -->
@@ -13,20 +13,20 @@
     <div v-else-if="error" class="text-center q-pa-md">
       <q-icon name="error" color="negative" size="3em" />
       <p class="text-negative">{{ error }}</p>
-      <q-btn color="primary" label="Retry" @click="fetchMedications" />
+      <q-btn color="primary" label="Opnieuw proberen" @click="fetchMedications" />
     </div>
 
     <!-- No medications to take -->
     <div v-else-if="currentMedications.length === 0" class="text-center q-pa-xl">
       <q-icon name="check_circle" color="positive" size="4em" />
-      <h5 class="q-mt-md">No medications to take right now</h5>
-      <p class="text-grey-6">Check back later or when you receive a notification</p>
-      <p class="text-grey-7 q-mt-md">Current time: {{ currentTime }}</p>
+      <h5 class="q-mt-md">Geen medicatie om nu in te nemen</h5>
+      <p class="text-grey-6">Kom later terug of wanneer u een melding ontvangt</p>
+      <p class="text-grey-7 q-mt-md">Huidige tijd: {{ currentTime }}</p>
     </div>
 
     <!-- Medications to take -->
     <div v-else>
-      <p class="text-subtitle1 q-mb-md">Time now: {{ currentTime }}</p>
+      <p class="text-subtitle1 q-mb-md">Tijd nu: {{ currentTime }}</p>
       <q-card v-for="(med, index) in currentMedications" :key="index" class="q-mb-md">
         <q-card-section>
           <div class="row items-center">
@@ -34,7 +34,7 @@
             <div class="col">
               <div class="text-h6">{{ med.name }}</div>
               <div class="text-subtitle2 text-grey-7">{{ med.dosage }}</div>
-              <div class="text-caption text-grey-6">Scheduled at: {{ med.scheduledTime }}</div>
+              <div class="text-caption text-grey-6">Gepland om: {{ med.scheduledTime }}</div>
               <div v-if="med.notes" class="text-caption text-grey-8 q-mt-sm">
                 <q-icon name="info" size="xs" /> {{ med.notes }}
               </div>
@@ -42,7 +42,7 @@
             <q-btn
               color="positive"
               icon="check"
-              label="Taken"
+              label="Ingenomen"
               @click="markAsTaken(med, index)"
               :loading="med.marking"
             />
@@ -56,6 +56,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api } from 'boot/axios'
+import { TextToSpeech } from '@capacitor-community/text-to-speech'
 // import { useQuasar } from 'quasar'
 
 // const $q = useQuasar()
@@ -95,17 +96,17 @@ async function fetchMedications() {
       medicationSchedule.value = data.medication_schedule
       filterCurrentMedications()
     } else {
-      error.value = 'Invalid medication schedule format'
+      error.value = 'Ongeldig medicatieschema formaat'
     }
   } catch (err) {
     console.error('Error fetching medication schedule:', err)
-    error.value = 'Failed to load medication schedule. Please try again.'
+    error.value = 'Kan medicatieschema niet laden. Probeer het opnieuw.'
   } finally {
     loading.value = false
   }
 }
 
-function filterCurrentMedications() {
+async function filterCurrentMedications() {
   const now = new Date()
   const today = new Date()
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -147,6 +148,7 @@ function filterCurrentMedications() {
               notes: medication.notes || '',
               marking: false
             })
+            
           }
         }
       }
@@ -154,7 +156,26 @@ function filterCurrentMedications() {
   }
 
   currentMedications.value = medications
+  await Promise.all(medications.map(med => speakMedicationReminder(med.name, med.dosage, med.scheduledTime)))
   console.log(`Found ${medications.length} medications to take now`)
+}
+
+async function speakMedicationReminder(medicationName, dosage, scheduledTime) {
+  try {
+    const hours = scheduledTime.split(':')[0]
+    const minutes = scheduledTime.split(':')[1]
+    
+    await TextToSpeech.speak({
+      text: `Het is tijd om uw medicatie in te nemen: ${medicationName}.  Dosering: ${dosage}. Gepland om ${hours} uur en ${minutes} minuten. Druk op de knop 'Ingenomen' zodra u de medicatie hebt ingenomen.`,
+      lang: 'nl-BE',
+      rate: 1.0,
+      pitch: 1.0,
+      volume: 1.0,
+      category: 'ambient'
+    })
+  } catch (err) {
+    console.error('Error with text-to-speech:', err)
+  }
 }
 
 async function markAsTaken(medication, index) {
