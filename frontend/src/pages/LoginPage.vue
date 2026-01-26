@@ -96,7 +96,7 @@ async function onSubmit() {
     if (role === 'mantelzorger') {
       await router.push('/mantelzorger/dashboard')
     } else if (role === 'patient') {
-      await router.push('/patient/dashboard')
+      await router.push('/home')
     } else {
       await router.push('/home')
     }

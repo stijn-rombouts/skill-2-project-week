@@ -1,11 +1,14 @@
 <template>
   <q-page class="flex flex-center column">
-    <img
+    <!-- <img
       alt="Quasar logo"
       src="~assets/quasar-logo-vertical.svg"
       style="width: 200px; height: 200px"
-    />
+    /> -->
 
+    <div class="q-mt-lg text-center">
+      <h3>Patient Home Pagina</h3>
+    </div>
     <div class="q-mt-lg">
       <q-btn
         color="primary"
@@ -29,7 +32,7 @@
 import { ref, onMounted } from 'vue'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { Capacitor } from '@capacitor/core'
-import { BackgroundRunner } from '@capacitor/background-runner'
+// import { BackgroundRunner } from '@capacitor/background-runner'
 import { api } from 'src/boot/axios'
 
 const isLoading = ref(false)
@@ -63,9 +66,9 @@ onMounted(async () => {
       }
 
       // Check if BackgroundRunner is available
-      console.log('Checking BackgroundRunner availability...')
-      const bgCheck = await BackgroundRunner.checkPermissions()
-      console.log('BackgroundRunner check:', bgCheck)
+      // console.log('Checking BackgroundRunner availability...')
+      // const bgCheck = await BackgroundRunner.checkPermissions()
+      // console.log('BackgroundRunner check:', bgCheck)
     } catch (error) {
       console.error('Error checking permissions:', error)
     }
