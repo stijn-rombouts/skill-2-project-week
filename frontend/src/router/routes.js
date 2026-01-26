@@ -15,6 +15,7 @@ const routes = [
       { path: 'home', component: () => import('pages/IndexPage.vue') },
       { path: 'api-data', component: () => import('pages/ApiDataPage.vue') },
       { path: 'capacitor', component: () => import('pages/CapacitorPage.vue') },
+      { path: 'patient-take-medication', component: () => import('pages/PatientTakeMedicationPage.vue') },
       
       // Mantelzorger routes
       { 
