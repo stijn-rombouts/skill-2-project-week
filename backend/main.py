@@ -1,5 +1,17 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
+from datetime import timedelta
+
+from database import init_db, get_db, User, Role
+from auth import (
+    authenticate_user, 
+    create_access_token, 
+    get_password_hash, 
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    get_current_user
+)
 
 app = FastAPI()
 
@@ -10,6 +22,56 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database and create default data on startup"""
+    init_db()
+    
+    # Create a database session
+    db = next(get_db())
+    
+    try:
+        # Check if roles exist, if not create them
+        mantelzorger_role = db.query(Role).filter(Role.name == "mantelzorger").first()
+        if not mantelzorger_role:
+            mantelzorger_role = Role(name="mantelzorger")
+            db.add(mantelzorger_role)
+            db.commit()
+            db.refresh(mantelzorger_role)
+        
+        patient_role = db.query(Role).filter(Role.name == "patient").first()
+        if not patient_role:
+            patient_role = Role(name="patient")
+            db.add(patient_role)
+            db.commit()
+            db.refresh(patient_role)
+        
+        # Check if default users exist, if not create them
+        mantelzorger1 = db.query(User).filter(User.username == "mantelzorger1").first()
+        if not mantelzorger1:
+            mantelzorger1 = User(
+                username="mantelzorger1",
+                hashed_password=get_password_hash("password123"),  # Default password
+                role_id=mantelzorger_role.id
+            )
+            db.add(mantelzorger1)
+            db.commit()
+        
+        patient1 = db.query(User).filter(User.username == "patient1").first()
+        if not patient1:
+            patient1 = User(
+                username="patient1",
+                hashed_password=get_password_hash("password123"),  # Default password
+                role_id=patient_role.id
+            )
+            db.add(patient1)
+            db.commit()
+        
+        print("Database initialized with default roles and users")
+    finally:
+        db.close()
 
 notification_schedule = []
 
@@ -51,3 +113,37 @@ async def clear_schedule():
 async def regenerate_schedule():
     generate_notification_schedule()
     return {"message": "Schedule regenerated"}
+
+
+# Authentication endpoints
+@app.post("/api/login")
+async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    """Login endpoint that returns a JWT token"""
+    user = authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "username": user.username,
+        "role": user.role.name
+    }
+
+
+@app.get("/api/me")
+async def read_users_me(current_user: User = Depends(get_current_user)):
+    """Get current user information (protected route example)"""
+    return {
+        "username": current_user.username,
+        "role": current_user.role.name
+    }

@@ -30,6 +30,7 @@ import { ref, onMounted } from 'vue'
 import { LocalNotifications } from '@capacitor/local-notifications'
 import { Capacitor } from '@capacitor/core'
 import { BackgroundRunner } from '@capacitor/background-runner'
+import { api } from 'src/boot/axios'
 
 const isLoading = ref(false)
 const isEnabled = ref(false)
@@ -76,8 +77,8 @@ onMounted(async () => {
 async function scheduleNotificationsFromAPI() {
   try {
     console.log('Fetching notification schedule from API...')
-    const response = await fetch('http://172.16.222.33:8000/api/schedule_notification')
-    const data = await response.json()
+    const response = await api.get('/api/schedule_notification')
+    const data = response.data
 
     console.log('Schedule received:', data)
 
