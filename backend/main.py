@@ -1,11 +1,14 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta, datetime
 from pydantic import BaseModel
 from typing import Optional
-
+from email.mime.text import MIMEText
+import smtplib
+import os
+from dotenv import load_dotenv
 from database import init_db, get_db, User, Role, Medication
 from auth import (
     authenticate_user, 
@@ -14,6 +17,8 @@ from auth import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
     get_current_user
 )
+
+load_dotenv()
 
 app = FastAPI()
 
@@ -29,67 +34,54 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database and create default data on startup"""
     init_db()
-    
-    # Create a database session
     db = next(get_db())
-    
     try:
-        # Check if roles exist, if not create them
-        mantelzorger_role = db.query(Role).filter(Role.name == "mantelzorger").first()
-        if not mantelzorger_role:
-            mantelzorger_role = Role(name="mantelzorger")
-            db.add(mantelzorger_role)
-            db.commit()
-            db.refresh(mantelzorger_role)
-        
-        patient_role = db.query(Role).filter(Role.name == "patient").first()
-        if not patient_role:
-            patient_role = Role(name="patient")
-            db.add(patient_role)
-            db.commit()
-            db.refresh(patient_role)
+        # 1. Rollen aanmaken
+        m_role = db.query(Role).filter(Role.name == "mantelzorger").first()
+        if not m_role:
+            m_role = Role(name="mantelzorger")
+            db.add(m_role); db.commit(); db.refresh(m_role)
 
-        zorgverlener_role = db.query(Role).filter(Role.name == "zorgverlener").first()
-        if not zorgverlener_role:
-            zorgverlener_role = Role(name="zorgverlener")
-            db.add(zorgverlener_role)
-            db.commit()
-            db.refresh(zorgverlener_role)
-        
-        # Check if default users exist, if not create them
-        mantelzorger1 = db.query(User).filter(User.username == "mantelzorger1").first()
-        if not mantelzorger1:
-            mantelzorger1 = User(
+        p_role = db.query(Role).filter(Role.name == "patient").first()
+        if not p_role:
+            p_role = Role(name="patient")
+            db.add(p_role); db.commit(); db.refresh(p_role)
+
+        # 2. Mantelzorger aanmaken MET e-mail
+        m1 = db.query(User).filter(User.username == "mantelzorger1").first()
+        if not m1:
+            m1 = User(
                 username="mantelzorger1",
-                hashed_password=get_password_hash("password123"),  # Default password
-                role_id=mantelzorger_role.id
+                email="jarne.bouamoud@hotmail.com",
+                hashed_password=get_password_hash("password123"),
+                role_id=m_role.id
             )
-            db.add(mantelzorger1)
-            db.commit()
-        
-        patient1 = db.query(User).filter(User.username == "patient1").first()
-        if not patient1:
-            patient1 = User(
+            db.add(m1); db.commit(); db.refresh(m1)
+
+        # 3. Patiënt aanmaken EN KOPPELEN aan mantelzorger
+        p1 = db.query(User).filter(User.username == "patient1").first()
+        if not p1:
+            p1 = User(
                 username="patient1",
-                hashed_password=get_password_hash("password123"),  # Default password
-                role_id=patient_role.id
+                hashed_password=get_password_hash("password123"),
+                role_id=p_role.id,
+                caregiver_id=m1.id  # <--- DIT IS DE CRUCIALE KOPPELING
             )
-            db.add(patient1)
-            db.commit()
-        
-        zorgverlener1 = db.query(User).filter(User.username == "zorgverlener1").first()
-        if not zorgverlener1:
-            zorgverlener1 = User(
-                username="zorgverlener1",
-                hashed_password=get_password_hash("password123"),  # Default password
-                role_id=zorgverlener_role.id
+            db.add(p1); db.commit(); db.refresh(p1)
+
+        # 4. Test medicatie aanmaken (zodat ID 1 altijd bestaat)
+        med1 = db.query(Medication).filter(Medication.id == 1).first()
+        if not med1:
+            med1 = Medication(
+                patient_id=p1.id,
+                name="test medicatie",
+                dosage="1 pil",
+                schedule={"monday": {"enabled": True, "times": ["08:00"]}}
             )
-            db.add(zorgverlener1)
-            db.commit()
-        
-        print("Database initialized with default roles and users")
+            db.add(med1); db.commit()
+
+        print("✅ Database succesvol gereset, gekoppeld en gevuld!")
     finally:
         db.close()
 
@@ -108,6 +100,26 @@ def generate_notification_schedule():
             "timestamp": notification_time.isoformat(),
             "message": f"Notification {i + 1} at {notification_time.strftime('%H:%M:%S')}"
         })
+
+# Email Send Function
+def send_alert_email(to_email: str, patient_name: str, medication_name: str):
+    subject = f"ALERT: {patient_name} missed their medication"
+    body = f"Hello,\n\nThis is an automated alert. {patient_name} has not confirmed taking their '{medication_name}' as scheduled.\n\nSent: {datetime.now().strftime('%H:%M:%S')}"
+    
+    sender = os.getenv("EMAIL_ADDRESS")
+    password = os.getenv("EMAIL_PASSWORD")
+
+    try:
+        msg = MIMEText(body)
+        msg['Subject'], msg['From'], msg['To'] = subject, sender, to_email
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(sender, password)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        print(f"Email failed: {e}")
+        return False
 
 @app.get("/")
 async def root():
@@ -322,3 +334,23 @@ async def delete_medication(
     db.delete(medication)
     db.commit()
     return {"message": "Medication deleted successfully"}
+
+@app.post("/api/medications/{medication_id}/missed")
+async def report_missed_medication(medication_id: int, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    print(f"🔔 API ONTVANGEN: Missed call voor ID {medication_id}")
+    
+    med = db.query(Medication).filter(Medication.id == medication_id).first()
+    if not med:
+        print(f"❌ FOUT: Medicijn {medication_id} niet gevonden in DB")
+        raise HTTPException(status_code=404, detail="Medication not found")
+
+    patient = med.patient
+    caregiver = patient.caregiver 
+
+    if caregiver and caregiver.email:
+        print(f"📧 EMAIL TRIGGER: Sturen naar {caregiver.email}")
+        background_tasks.add_task(send_alert_email, caregiver.email, patient.username, med.name)
+        return {"status": "Alert sent"}
+    
+    print("⚠️ WAARSCHUWING: Geen caregiver of e-mail gevonden in DB voor deze patient")
+    return {"status": "No caregiver email found"}
