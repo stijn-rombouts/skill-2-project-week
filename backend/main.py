@@ -47,6 +47,13 @@ async def startup_event():
             db.add(patient_role)
             db.commit()
             db.refresh(patient_role)
+
+        zorgverlener_role = db.query(Role).filter(Role.name == "zorgverlener").first()
+        if not zorgverlener_role:
+            zorgverlener_role = Role(name="zorgverlener")
+            db.add(zorgverlener_role)
+            db.commit()
+            db.refresh(zorgverlener_role)
         
         # Check if default users exist, if not create them
         mantelzorger1 = db.query(User).filter(User.username == "mantelzorger1").first()
@@ -67,6 +74,16 @@ async def startup_event():
                 role_id=patient_role.id
             )
             db.add(patient1)
+            db.commit()
+        
+        zorgverlener1 = db.query(User).filter(User.username == "zorgverlener1").first()
+        if not zorgverlener1:
+            zorgverlener1 = User(
+                username="zorgverlener1",
+                hashed_password=get_password_hash("password123"),  # Default password
+                role_id=zorgverlener_role.id
+            )
+            db.add(zorgverlener1)
             db.commit()
         
         print("Database initialized with default roles and users")
