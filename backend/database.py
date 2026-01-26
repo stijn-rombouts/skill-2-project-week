@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Float, Text, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Float, Text, Boolean, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -40,7 +40,7 @@ class Medication(Base):
     patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
     dosage = Column(String, nullable=False)  # e.g., "500mg", "2 tablets"
-    frequency = Column(String, nullable=False)  # e.g., "twice daily", "every 8 hours"
+    schedule = Column(JSON, nullable=False)  # Weekly schedule: {day: {enabled: bool, times: [HH:MM, ...]}, ...}
     start_date = Column(DateTime, default=datetime.now, nullable=False)
     end_date = Column(DateTime, nullable=True)
     notes = Column(Text, nullable=True)

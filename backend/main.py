@@ -189,14 +189,14 @@ async def get_patients(
 class MedicationCreate(BaseModel):
     name: str
     dosage: str
-    frequency: str
+    schedule: dict
     notes: Optional[str] = None
 
 
 class MedicationUpdate(BaseModel):
     name: Optional[str] = None
     dosage: Optional[str] = None
-    frequency: Optional[str] = None
+    schedule: Optional[dict] = None
     notes: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -205,7 +205,7 @@ class MedicationResponse(BaseModel):
     id: int
     name: str
     dosage: str
-    frequency: str
+    schedule: dict
     start_date: datetime
     end_date: Optional[datetime] = None
     notes: Optional[str] = None
@@ -236,7 +236,7 @@ async def create_medication(
         patient_id=patient_id,
         name=medication.name,
         dosage=medication.dosage,
-        frequency=medication.frequency,
+        schedule=medication.schedule,
         notes=medication.notes
     )
     db.add(db_medication)
@@ -293,8 +293,8 @@ async def update_medication(
         medication.name = medication_update.name
     if medication_update.dosage:
         medication.dosage = medication_update.dosage
-    if medication_update.frequency:
-        medication.frequency = medication_update.frequency
+    if medication_update.schedule:
+        medication.schedule = medication_update.schedule
     if medication_update.notes is not None:
         medication.notes = medication_update.notes
     if medication_update.is_active is not None:
