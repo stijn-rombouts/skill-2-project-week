@@ -68,9 +68,13 @@ export const useAuthStore = defineStore('auth', {
         // Optionally verify token with backend
         try {
           await api.get('/api/me')
-        } catch {
-          // Token is invalid, clear auth
-          this.logout()
+        } catch (error) {
+          // Only logout if we get a 401 (unauthorized) response
+          // This means the token is invalid or expired
+          if (error.response?.status === 401) {
+            this.logout()
+          }
+          // For other errors (network issues, backend down), keep the user logged in
         }
       }
     },

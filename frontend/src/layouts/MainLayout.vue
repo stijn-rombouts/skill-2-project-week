@@ -42,6 +42,12 @@
             </q-item-section>
             <q-item-section>Patient Overview</q-item-section>
           </q-item>
+          <q-item clickable v-ripple to="/medications">
+            <q-item-section avatar>
+              <q-avatar color="primary" text-color="white" icon="medical_information" />
+            </q-item-section>
+            <q-item-section>Medications</q-item-section>
+          </q-item>
         </template>
 
         <!-- Zorgverlener specific links -->

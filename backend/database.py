@@ -1,6 +1,7 @@
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateTime, Float, Text, Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
+from datetime import datetime
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./app.db"
 
@@ -29,6 +30,23 @@ class User(Base):
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
     
     role = relationship("Role", back_populates="users")
+    medications = relationship("Medication", back_populates="patient")
+
+
+class Medication(Base):
+    __tablename__ = "medications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    name = Column(String, nullable=False)
+    dosage = Column(String, nullable=False)  # e.g., "500mg", "2 tablets"
+    frequency = Column(String, nullable=False)  # e.g., "twice daily", "every 8 hours"
+    start_date = Column(DateTime, default=datetime.now, nullable=False)
+    end_date = Column(DateTime, nullable=True)
+    notes = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True)
+    
+    patient = relationship("User", back_populates="medications")
 
 
 def get_db():
