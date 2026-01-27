@@ -86,14 +86,56 @@ const currentMedications = ref([])
 const currentTime = ref('')
 const isListening = ref(false)
 const speechAvailable = ref(false)
+let speechTimeoutId = null
+let matchFound = ref(false)
+
+// Global handler for SpeechRecognition errors that come as unhandled rejections
+const handleUnhandledRejection = async (event) => {
+  const errorMsg = (event.reason?.message || event.reason?.toString() || '').toLowerCase()
+  console.log('Unhandled rejection caught:', errorMsg)
+  
+  if (errorMsg.includes("no match") || errorMsg.includes("didn't understand") || errorMsg.includes("client side error")) {
+    event.preventDefault() // Prevent the error from being logged to console as unhandled
+    console.log('SpeechRecognition error caught via unhandled rejection handler')
+    
+    // Only handle if we're supposed to be listening and have medications
+    if (currentMedications.value.length > 0) {
+      isListening.value = false
+      
+      try {
+        await TextToSpeech.speak({
+          text: 'Ik heb u niet begrepen. Probeer het opnieuw en zeg medicatie ingenomen.',
+          lang: 'nl-BE',
+          rate: 1.0,
+          pitch: 1.0,
+          volume: 1.0,
+          category: 'ambient'
+        })
+        
+        if (speechAvailable.value) {
+          console.log('Restarting speech recognition from global handler')
+          await startSpeechRecognition()
+        }
+      } catch (ttsErr) {
+        console.log('Error with TTS from global handler:', ttsErr)
+      }
+    }
+  }
+}
 
 onMounted(async () => {
+  // Add global unhandled rejection handler for SpeechRecognition errors
+  window.addEventListener('unhandledrejection', handleUnhandledRejection)
+  
   await fetchMedications()
   updateCurrentTime()
   await checkSpeechRecognitionAvailability()
 })
 
 onUnmounted(() => {
+  // Remove global handler
+  window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+  
   // Stop speech recognition if still listening when leaving the page
   if (isListening.value) {
     stopSpeechRecognition()
@@ -195,11 +237,21 @@ async function filterCurrentMedications() {
 
 async function speakMedicationReminder(medicationName, dosage, scheduledTime) {
   try {
-    const hours = scheduledTime.split(':')[0]
-    const minutes = scheduledTime.split(':')[1]
+    // const hours = scheduledTime.split(':')[0]
+    // const minutes = scheduledTime.split(':')[1]
     
+    // await TextToSpeech.speak({
+    //   text: `Het is tijd om uw medicatie in te nemen: ${medicationName}.  Dosering: ${dosage}. Gepland om ${hours} uur en ${minutes} minuten. Zeg medicatie ingenomen als u de medicatie heeft ingenomen.`,
+    //   lang: 'nl-BE',
+    //   rate: 1.0,
+    //   pitch: 1.0,
+    //   volume: 1.0,
+    //   category: 'ambient'
+    // })
+    console.log('Speaking medication reminder for:', medicationName)
+    console.log(`Het is tijd om uw medicatie in te nemen: ${medicationName}.  Dosering: ${dosage}. Gepland om ${scheduledTime}.`)
     await TextToSpeech.speak({
-      text: `Het is tijd om uw medicatie in te nemen: ${medicationName}.  Dosering: ${dosage}. Gepland om ${hours} uur en ${minutes} minuten. Zeg medicatie ingenomen als u de medicatie heeft ingenomen.`,
+      text: `Zeg medicatie ingenomen als u de medicatie heeft ingenomen.`,
       lang: 'nl-BE',
       rate: 1.0,
       pitch: 1.0,
@@ -290,40 +342,113 @@ async function startSpeechRecognition() {
       console.log('*** Partial results event received ***')
       console.log('Partial results data:', JSON.stringify(data))
       console.log('Partial results matches:', data.matches)
-      handleSpeechResult(data.matches)
+      handleSpeechResult(data.matches, false)  // false = not final
     })
     
     await SpeechRecognition.addListener('results', (data) => {
       console.log('*** Final results event received ***')
       console.log('Final results data:', JSON.stringify(data))
       console.log('Final results matches:', data.matches)
-      handleSpeechResult(data.matches)
+      handleSpeechResult(data.matches, true)  // true = final results
     })
     
-    await SpeechRecognition.addListener('error', (error) => {
+    await SpeechRecognition.addListener('error', async (error) => {
       console.log('*** Speech recognition error event ***')
       console.log('Speech recognition error:', JSON.stringify(error))
       isListening.value = false
       console.log(`Spraakherkenningfout: ${error.message || 'Unknown error'}`)
+      
+      // Handle "Didn't understand" or "No match" errors
+      const errorMsg = (error.message || '').toLowerCase()
+      if (errorMsg.includes("didn't understand") || errorMsg.includes("no match")) {
+        console.log('Speech not understood or no match, notifying user...')
+        try {
+          await TextToSpeech.speak({
+            text: 'Ik heb u niet begrepen. Probeer het opnieuw en zeg medicatie ingenomen.',
+            lang: 'nl-BE',
+            rate: 1.0,
+            pitch: 1.0,
+            volume: 1.0,
+            category: 'ambient'
+          })
+          
+          // Restart speech recognition after TTS finishes if there are still medications to take
+          if (currentMedications.value.length > 0 && speechAvailable.value) {
+            console.log('Restarting speech recognition after error')
+            await startSpeechRecognition()
+          }
+        } catch (ttsErr) {
+          console.log('Error with TTS for speech error:', ttsErr)
+        }
+      }
     })
     
     await SpeechRecognition.addListener('start', () => {
       console.log('*** Speech recognition START event ***')
     })
     
-    await SpeechRecognition.addListener('end', () => {
+    await SpeechRecognition.addListener('end', async () => {
       console.log('*** Speech recognition END event ***')
+      const wasListening = isListening.value
       isListening.value = false
+      
+      // If we were listening and there are still medications, this might be an error case
+      // Restart after a small delay to allow error handlers to run first
+      if (wasListening && currentMedications.value.length > 0 && speechAvailable.value) {
+        console.log('Speech recognition ended unexpectedly, restarting after delay...')
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // Check if we haven't already restarted
+        if (!isListening.value && currentMedications.value.length > 0) {
+          try {
+            await TextToSpeech.speak({
+              text: 'Ik heb u niet begrepen. Probeer het opnieuw en zeg medicatie ingenomen.',
+              lang: 'nl-BE',
+              rate: 1.0,
+              pitch: 1.0,
+              volume: 1.0,
+              category: 'ambient'
+            })
+            console.log('Restarting speech recognition from end handler')
+            await startSpeechRecognition()
+          } catch (err) {
+            console.log('Error restarting from end handler:', err)
+          }
+        }
+      }
+    })
+    
+    // Add listeningState listener - this is fired by the plugin
+    await SpeechRecognition.addListener('listeningState', (state) => {
+      console.log('*** Listening state changed ***', state)
     })
     
     console.log('Listeners registered')
     isListening.value = true
+    matchFound.value = false
+    
+    // Clear any existing timeout
+    if (speechTimeoutId) {
+      clearTimeout(speechTimeoutId)
+    }
+    
+    // Set a timeout - if no match found within 8 seconds, retry
+    speechTimeoutId = setTimeout(() => {
+      console.log('Speech recognition timeout - no match found in time')
+      if (!matchFound.value && currentMedications.value.length > 0 && speechAvailable.value) {
+        console.log('Timeout triggered, stopping and restarting...')
+        handleTimeoutRetry()
+      }
+    }, 8000)  // 8 second timeout
     
     // Small delay to ensure listeners are registered
     await new Promise(resolve => setTimeout(resolve, 100))
     
     console.log('Starting SpeechRecognition.start()...')
-    const result = await SpeechRecognition.start({
+    
+    // Use promise with .catch() to handle async errors that come after initial resolve
+    // Store the promise so we can catch errors that come later
+    const startPromise = SpeechRecognition.start({
       language: 'nl-NL',
       maxResults: 5,
       prompt: 'Zeg "medicatie ingenomen"',
@@ -331,25 +456,74 @@ async function startSpeechRecognition() {
       popup: false
     })
     
-    console.log('SpeechRecognition.start() completed successfully')
-    console.log('Start result:', JSON.stringify(result))
+    // Handle promise resolution and any later rejections
+    startPromise.then((result) => {
+      console.log('SpeechRecognition.start() completed successfully')
+      console.log('Start result:', JSON.stringify(result))
+      console.log("Spraakherkenning gestart. Zeg 'medicatie ingenomen'")
+    })
     
-    console.log("Spraakherkenning gestart. Zeg 'medicatie ingenomen'")
+    // This catch handles async errors that come after start() initially resolves
+    startPromise.catch(async (err) => {
+      console.log('SpeechRecognition.start() async error caught:', err)
+      console.log('Error message:', err?.message)
+      await handleSpeechError(err)
+    })
+    
   } catch (err) {
     console.log('Error starting speech recognition:', err)
-    isListening.value = false
-    
-    // $q.notify({
-    //   type: 'negative',
-    //   message: 'Kon spraakherkenning niet starten',
-    //   position: 'top'
-    // })
-    console.log("Kon spraakherkenning niet starten")
+    await handleSpeechError(err)
   }
 }
 
+async function handleSpeechError(err) {
+  console.log('*** handleSpeechError called ***')
+  console.log('Error object:', err)
+  console.log('Error message:', err?.message)
+  console.log('Error toString:', err?.toString?.())
+  
+  isListening.value = false
+  
+  // Handle "No match", "Client side error", or "Didn't understand" errors - retry
+  const errorMsg = (err?.message || err?.toString?.() || '').toLowerCase()
+  console.log('Error message lowercase:', errorMsg)
+  
+  if (errorMsg.includes("no match") || errorMsg.includes("client side error") || errorMsg.includes("didn't understand")) {
+    console.log('Speech recognition error (no match/client error), notifying user and retrying...')
+    try {
+      await TextToSpeech.speak({
+        text: 'Ik heb u niet begrepen. Probeer het opnieuw en zeg medicatie ingenomen.',
+        lang: 'nl-BE',
+        rate: 1.0,
+        pitch: 1.0,
+        volume: 1.0,
+        category: 'ambient'
+      })
+      
+      // Restart speech recognition after TTS finishes if there are still medications to take
+      if (currentMedications.value.length > 0 && speechAvailable.value) {
+        console.log('Restarting speech recognition after error')
+        await startSpeechRecognition()
+      } else {
+        console.log('Not restarting: medications:', currentMedications.value.length, 'speechAvailable:', speechAvailable.value)
+      }
+    } catch (ttsErr) {
+      console.log('Error with TTS for speech error:', ttsErr)
+    }
+  } else {
+    console.log("Kon spraakherkenning niet starten - error not recognized for retry")
+  }
+}
+
+
 async function stopSpeechRecognition() {
   try {
+    // Clear the timeout
+    if (speechTimeoutId) {
+      clearTimeout(speechTimeoutId)
+      speechTimeoutId = null
+    }
+    
     await SpeechRecognition.stop()
     isListening.value = false
     
@@ -367,8 +541,48 @@ async function stopSpeechRecognition() {
   }
 }
 
-async function handleSpeechResult(matches) {
-  console.log('handleSpeechResult called with:', matches)
+async function handleTimeoutRetry() {
+  console.log('handleTimeoutRetry called')
+  isListening.value = false
+  
+  // Don't await stop - it might hang if speech recognition already stopped
+  console.log('Stopping speech recognition (non-blocking)...')
+  SpeechRecognition.stop().catch(e => console.log('Stop error (ignored):', e))
+  
+  // Small delay before TTS
+  await new Promise(resolve => setTimeout(resolve, 500))
+  
+  console.log('Starting TTS...')
+  try {
+    await TextToSpeech.speak({
+      text: 'Ik heb u niet begrepen. Probeer het opnieuw en zeg medicatie ingenomen.',
+      lang: 'nl-BE',
+      rate: 1.0,
+      pitch: 1.0,
+      volume: 1.0,
+      category: 'ambient'
+    })
+    console.log('TTS finished')
+  } catch (ttsErr) {
+    console.log('TTS error (ignored):', ttsErr)
+  }
+  
+  // Check again if we should restart
+  if (currentMedications.value.length > 0 && speechAvailable.value) {
+    console.log('Restarting speech recognition after timeout')
+    try {
+      await startSpeechRecognition()
+      console.log('Speech recognition restarted successfully')
+    } catch (startErr) {
+      console.log('Error restarting speech recognition:', startErr)
+    }
+  } else {
+    console.log('Not restarting - no medications or speech not available')
+  }
+}
+
+async function handleSpeechResult(matches, isFinal = false) {
+  console.log('handleSpeechResult called with:', matches, 'isFinal:', isFinal)
   
   if (!matches || matches.length === 0) {
     console.log('No matches found or empty matches array')
@@ -383,6 +597,13 @@ async function handleSpeechResult(matches) {
       matchText.includes('medicatie ingenome') ||
       matchText.includes('medicijn ingenomen')) {
     console.log('*** Detected "medicatie ingenomen"! ***')
+    
+    // Set matchFound to prevent timeout from triggering
+    matchFound.value = true
+    if (speechTimeoutId) {
+      clearTimeout(speechTimeoutId)
+      speechTimeoutId = null
+    }
     
     // Mark the first medication as taken
     if (currentMedications.value.length > 0) {
@@ -409,8 +630,37 @@ async function handleSpeechResult(matches) {
     } else {
       console.log('No medications available to mark as taken')
     }
+  } else if (isFinal) {
+    // Only handle unmatched phrases on final results, not partial results
+    console.log('Final result did not match expected phrases, will retry')
+    
+    // Notify user and restart speech recognition
+    if (currentMedications.value.length > 0) {
+      try {
+        // Stop current recognition first
+        await SpeechRecognition.stop()
+        isListening.value = false
+        
+        await TextToSpeech.speak({
+          text: 'Ik heb u niet begrepen. Zeg alstublieft medicatie ingenomen.',
+          lang: 'nl-BE',
+          rate: 1.0,
+          pitch: 1.0,
+          volume: 1.0,
+          category: 'ambient'
+        })
+        
+        // Restart speech recognition after TTS
+        if (speechAvailable.value) {
+          console.log('Restarting speech recognition after unmatched phrase')
+          await startSpeechRecognition()
+        }
+      } catch (err) {
+        console.log('Error handling unmatched phrase:', err)
+      }
+    }
   } else {
-    console.log('Text did not match expected phrases')
+    console.log('Partial result did not match, waiting for final result...')
   }
 }
 </script>
