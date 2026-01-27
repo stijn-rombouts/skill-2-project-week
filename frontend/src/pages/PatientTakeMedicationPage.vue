@@ -26,7 +26,24 @@
 
     <!-- Medications to take -->
     <div v-else>
-      <p class="text-subtitle1 q-mb-md">Tijd nu: {{ currentTime }}</p>
+      <div class="row items-center justify-between q-mb-md">
+        <p class="text-subtitle1 q-my-none">Tijd nu: {{ currentTime }}</p>
+        <q-btn
+          :color="isListening ? 'negative' : 'primary'"
+          :icon="isListening ? 'mic_off' : 'mic'"
+          :label="isListening ? 'Stop luisteren' : 'Start spraakherkenning'"
+          @click="toggleSpeechRecognition"
+          :disable="!speechAvailable"
+        />
+      </div>
+      
+      <q-banner v-if="isListening" class="bg-primary text-white q-mb-md">
+        <template v-slot:avatar>
+          <q-icon name="mic" />
+        </template>
+        Luisteren naar "medicatie ingenomen"...
+      </q-banner>
+
       <q-card v-for="(med, index) in currentMedications" :key="index" class="q-mb-md">
         <q-card-section>
           <div class="row items-center">
@@ -54,9 +71,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { api } from 'boot/axios'
 import { TextToSpeech } from '@capacitor-community/text-to-speech'
+import { SpeechRecognition } from '@capacitor-community/speech-recognition'
 // import { useQuasar } from 'quasar'
 
 // const $q = useQuasar()
@@ -66,10 +84,20 @@ const error = ref(null)
 const medicationSchedule = ref([])
 const currentMedications = ref([])
 const currentTime = ref('')
+const isListening = ref(false)
+const speechAvailable = ref(false)
 
 onMounted(async () => {
   await fetchMedications()
   updateCurrentTime()
+  await checkSpeechRecognitionAvailability()
+})
+
+onUnmounted(() => {
+  // Stop speech recognition if still listening when leaving the page
+  if (isListening.value) {
+    stopSpeechRecognition()
+  }
 })
 
 function updateCurrentTime() {
@@ -99,7 +127,7 @@ async function fetchMedications() {
       error.value = 'Ongeldig medicatieschema formaat'
     }
   } catch (err) {
-    console.error('Error fetching medication schedule:', err)
+    console.log('Error fetching medication schedule:', err)
     error.value = 'Kan medicatieschema niet laden. Probeer het opnieuw.'
   } finally {
     loading.value = false
@@ -156,7 +184,12 @@ async function filterCurrentMedications() {
   }
 
   currentMedications.value = medications
-  await Promise.all(medications.map(med => speakMedicationReminder(med.name, med.dosage, med.scheduledTime)))
+  
+  // Speak each medication one by one and start speech recognition after each
+  for (const med of medications) {
+    await speakMedicationReminder(med.name, med.dosage, med.scheduledTime)
+  }
+  
   console.log(`Found ${medications.length} medications to take now`)
 }
 
@@ -166,15 +199,23 @@ async function speakMedicationReminder(medicationName, dosage, scheduledTime) {
     const minutes = scheduledTime.split(':')[1]
     
     await TextToSpeech.speak({
-      text: `Het is tijd om uw medicatie in te nemen: ${medicationName}.  Dosering: ${dosage}. Gepland om ${hours} uur en ${minutes} minuten. Druk op de knop 'Ingenomen' zodra u de medicatie hebt ingenomen.`,
+      text: `Het is tijd om uw medicatie in te nemen: ${medicationName}.  Dosering: ${dosage}. Gepland om ${hours} uur en ${minutes} minuten. Zeg medicatie ingenomen als u de medicatie heeft ingenomen.`,
       lang: 'nl-BE',
       rate: 1.0,
       pitch: 1.0,
       volume: 1.0,
       category: 'ambient'
     })
+    
+    console.log('TTS finished for:', medicationName)
+    
+    // Automatically start speech recognition after TTS finishes if available
+    if (speechAvailable.value && !isListening.value) {
+      console.log('Starting speech recognition automatically after TTS')
+      await startSpeechRecognition()
+    }
   } catch (err) {
-    console.error('Error with text-to-speech:', err)
+    console.log('Error with text-to-speech:', err)
   }
 }
 
@@ -192,9 +233,170 @@ async function markAsTaken(medication, index) {
     
     // Remove from the list
     currentMedications.value.splice(index, 1)
+    
+    // $q.notify({
+    //   type: 'positive',
+    //   message: `${medication.name} gemarkeerd als ingenomen`,
+    //   position: 'top'
+    // })
+    console.log("Gemarkeerd as ingenomen")
   } catch (err) {
-    console.error('Error marking medication as taken:', err)
+    console.log('Error marking medication as taken:', err)
     medication.marking = false
+    
+    // $q.notify({
+    //   type: 'negative',
+    //   message: 'Kon medicatie niet markeren als ingenomen',
+    //   position: 'top'
+    // })
+    console.log("Kon medicatie niet markeren als ingenomen")
+  }
+}
+
+async function checkSpeechRecognitionAvailability() {
+  try {
+    const { available } = await SpeechRecognition.available()
+    speechAvailable.value = available
+    
+    if (available) {
+      // Request permissions
+      const { speechRecognition } = await SpeechRecognition.requestPermissions()
+      speechAvailable.value = speechRecognition === 'granted'
+    }
+  } catch (err) {
+    console.log('Error checking speech recognition availability:', err)
+    speechAvailable.value = false
+  }
+}
+
+async function toggleSpeechRecognition() {
+  if (isListening.value) {
+    await stopSpeechRecognition()
+  } else {
+    await startSpeechRecognition()
+  }
+}
+
+async function startSpeechRecognition() {
+  try {
+    console.log('Starting speech recognition setup...')
+    
+    // Remove any existing listeners first
+    await SpeechRecognition.removeAllListeners()
+    console.log('Removed existing listeners')
+    
+    // Register ALL possible listeners to debug
+    await SpeechRecognition.addListener('partialResults', (data) => {
+      console.log('*** Partial results event received ***')
+      console.log('Partial results data:', JSON.stringify(data))
+      console.log('Partial results matches:', data.matches)
+      handleSpeechResult(data.matches)
+    })
+    
+    await SpeechRecognition.addListener('results', (data) => {
+      console.log('*** Final results event received ***')
+      console.log('Final results data:', JSON.stringify(data))
+      console.log('Final results matches:', data.matches)
+      handleSpeechResult(data.matches)
+    })
+    
+    await SpeechRecognition.addListener('error', (error) => {
+      console.log('*** Speech recognition error event ***')
+      console.log('Speech recognition error:', JSON.stringify(error))
+      isListening.value = false
+      console.log(`Spraakherkenningfout: ${error.message || 'Unknown error'}`)
+    })
+    
+    await SpeechRecognition.addListener('start', () => {
+      console.log('*** Speech recognition START event ***')
+    })
+    
+    await SpeechRecognition.addListener('end', () => {
+      console.log('*** Speech recognition END event ***')
+      isListening.value = false
+    })
+    
+    console.log('Listeners registered')
+    isListening.value = true
+    
+    // Small delay to ensure listeners are registered
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    console.log('Starting SpeechRecognition.start()...')
+    const result = await SpeechRecognition.start({
+      language: 'nl-NL',
+      maxResults: 5,
+      prompt: 'Zeg "medicatie ingenomen"',
+      partialResults: true,
+      popup: false
+    })
+    
+    console.log('SpeechRecognition.start() completed successfully')
+    console.log('Start result:', JSON.stringify(result))
+    
+    console.log("Spraakherkenning gestart. Zeg 'medicatie ingenomen'")
+  } catch (err) {
+    console.log('Error starting speech recognition:', err)
+    isListening.value = false
+    
+    // $q.notify({
+    //   type: 'negative',
+    //   message: 'Kon spraakherkenning niet starten',
+    //   position: 'top'
+    // })
+    console.log("Kon spraakherkenning niet starten")
+  }
+}
+
+async function stopSpeechRecognition() {
+  try {
+    await SpeechRecognition.stop()
+    isListening.value = false
+    
+    // Remove all listeners
+    await SpeechRecognition.removeAllListeners()
+    
+    // $q.notify({
+    //   type: 'info',
+    //   message: 'Spraakherkenning gestopt',
+    //   position: 'top'
+    // })
+    console.log("Spraakherkenning gestopt")
+  } catch (err) {
+    console.log('Error stopping speech recognition:', err)
+  }
+}
+
+function handleSpeechResult(matches) {
+  console.log('handleSpeechResult called with:', matches)
+  
+  if (!matches || matches.length === 0) {
+    console.log('No matches found or empty matches array')
+    return
+  }
+  
+  // Check if any of the matches contains "medicatie ingenomen" (case insensitive)
+  const matchText = matches[0].toLowerCase()
+  console.log('First match text (lowercased):', matchText)
+  
+  if (matchText.includes('medicatie ingenomen') || 
+      matchText.includes('medicatie ingenome') ||
+      matchText.includes('medicijn ingenomen')) {
+    console.log('*** Detected "medicatie ingenomen"! ***')
+    
+    // Mark the first medication as taken
+    if (currentMedications.value.length > 0) {
+      console.log('Marking first medication as taken...')
+      const firstMed = currentMedications.value[0]
+      markAsTaken(firstMed, 0)
+      
+      // Stop listening after successful recognition
+      stopSpeechRecognition()
+    } else {
+      console.log('No medications available to mark as taken')
+    }
+  } else {
+    console.log('Text did not match expected phrases')
   }
 }
 </script>
