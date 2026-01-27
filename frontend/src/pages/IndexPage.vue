@@ -110,6 +110,22 @@ onUnmounted(() => {
 
 async function scheduleNotificationsFromAPI() {
   try {
+    // Create notification channel first (required for Android 8+)
+    try {
+      await LocalNotifications.createChannel({
+        id: 'medication-reminders',
+        name: 'Medication Reminders',
+        description: 'Notifications for medication reminders',
+        importance: 5, // High importance
+        sound: 'medication_reminder.wav',
+        visibility: 1,
+        vibration: true,
+      })
+      console.log('Notification channel created')
+    } catch (channelError) {
+      console.error('Error creating channel:', channelError)
+    }
+
     console.log('Fetching medication schedule from API...')
     const response = await api.get('/api/patient_schedule')
     const data = response.data

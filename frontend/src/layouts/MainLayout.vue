@@ -94,7 +94,7 @@
             </q-item-section>
             <q-item-section>My Dashboard</q-item-section>
           </q-item>
-          <q-item clickable v-ripple to="/capacitor">
+          <q-item clickable v-ripple to="/patient-take-medication">
             <q-item-section avatar>
               <q-avatar color="secondary" text-color="white" icon="medication" />
             </q-item-section>

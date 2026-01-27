@@ -28,13 +28,13 @@
     <div v-else>
       <div class="row items-center justify-between q-mb-md">
         <p class="text-subtitle1 q-my-none">Tijd nu: {{ currentTime }}</p>
-        <q-btn
+        <!-- <q-btn
           :color="isListening ? 'negative' : 'primary'"
           :icon="isListening ? 'mic_off' : 'mic'"
           :label="isListening ? 'Stop luisteren' : 'Start spraakherkenning'"
           @click="toggleSpeechRecognition"
           :disable="!speechAvailable"
-        />
+        /> -->
       </div>
       
       <q-banner v-if="isListening" class="bg-primary text-white q-mb-md">
@@ -269,13 +269,13 @@ async function checkSpeechRecognitionAvailability() {
   }
 }
 
-async function toggleSpeechRecognition() {
-  if (isListening.value) {
-    await stopSpeechRecognition()
-  } else {
-    await startSpeechRecognition()
-  }
-}
+// async function toggleSpeechRecognition() {
+//   if (isListening.value) {
+//     await stopSpeechRecognition()
+//   } else {
+//     await startSpeechRecognition()
+//   }
+// }
 
 async function startSpeechRecognition() {
   try {

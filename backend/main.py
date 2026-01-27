@@ -31,7 +31,7 @@ app.add_middleware(
 scheduler = BackgroundScheduler()
 notified_missed_medications = set()  # Track which missed medications we've already notified about
 check_missed_medications_interval = 20  # seconds
-check_missed_medications_grace_period = 1  # minutes
+check_missed_medications_grace_period = 5  # minutes
 
 
 def check_missed_medications():
