@@ -47,6 +47,22 @@ class Medication(Base):
     is_active = Column(Boolean, default=True)
     
     patient = relationship("User", back_populates="medications")
+    intakes = relationship("MedicationIntake", back_populates="medication", cascade="all, delete-orphan")
+
+
+class MedicationIntake(Base):
+    __tablename__ = "medication_intakes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    medication_id = Column(Integer, ForeignKey("medications.id"), nullable=False)
+    patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    scheduled_time = Column(String, nullable=False)  # HH:MM format
+    taken_at = Column(DateTime, default=datetime.now, nullable=False)
+    status = Column(String, default="taken", nullable=False)  # "taken", "skipped", "missed"
+    notes = Column(Text, nullable=True)
+    
+    medication = relationship("Medication", back_populates="intakes")
+    patient = relationship("User")
 
 
 def get_db():

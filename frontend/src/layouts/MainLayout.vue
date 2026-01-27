@@ -1,7 +1,18 @@
 <template>
   <q-layout view="hHh lpR fFf">
     <q-header reveal bordered>
-      <q-toolbar>
+      <q-toolbar v-if="$q.platform.is.capacitor">
+        <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
+        <q-space />
+        <div class="q-mr-md" v-if="user">
+          <q-chip color="primary" text-color="white" icon="person">
+            {{ user.username }} ({{ user.role }})
+          </q-chip>
+        </div>
+        <q-space />
+        <q-btn v-if="isAuthenticated" flat icon="logout" @click="handleLogout" />
+      </q-toolbar>
+      <q-toolbar v-else>
         <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
 
         <q-toolbar-title> Quasar App </q-toolbar-title>
@@ -14,6 +25,7 @@
 
         <q-btn v-if="isAuthenticated" flat icon="logout" label="Logout" @click="handleLogout" />
       </q-toolbar>
+       
     </q-header>
 
     <q-drawer v-model="leftDrawerOpen" show-if-above bordered>
@@ -82,7 +94,7 @@
             </q-item-section>
             <q-item-section>My Dashboard</q-item-section>
           </q-item>
-          <q-item clickable v-ripple to="/capacitor">
+          <q-item clickable v-ripple to="/patient-take-medication">
             <q-item-section avatar>
               <q-avatar color="secondary" text-color="white" icon="medication" />
             </q-item-section>
