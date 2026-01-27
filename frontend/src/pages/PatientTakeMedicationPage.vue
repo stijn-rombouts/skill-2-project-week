@@ -367,7 +367,7 @@ async function stopSpeechRecognition() {
   }
 }
 
-function handleSpeechResult(matches) {
+async function handleSpeechResult(matches) {
   console.log('handleSpeechResult called with:', matches)
   
   if (!matches || matches.length === 0) {
@@ -392,6 +392,20 @@ function handleSpeechResult(matches) {
       
       // Stop listening after successful recognition
       stopSpeechRecognition()
+      
+      // Speak confirmation
+      try {
+        await TextToSpeech.speak({
+          text: 'Medicatie gemarkeerd als ingenomen',
+          lang: 'nl-BE',
+          rate: 1.0,
+          pitch: 1.0,
+          volume: 1.0,
+          category: 'ambient'
+        })
+      } catch (err) {
+        console.log('Error with TTS confirmation:', err)
+      }
     } else {
       console.log('No medications available to mark as taken')
     }
