@@ -17,43 +17,42 @@ export const useAuthStore = defineStore('auth', {
 
   actions: {
     async login(username, password) {
-      try {
-        const formData = new FormData()
-        formData.append('username', username)
-        formData.append('password', password)
+  try {
+    const formData = new FormData()
+    formData.append('username', username)
+    formData.append('password', password)
 
-        const response = await api.post('/api/login', formData)
-        
-        this.token = response.data.access_token
-        this.user = {
-          username: response.data.username,
-          role: response.data.role,
-        }
-        this.isAuthenticated = true
-
-        // Store token in localStorage for persistence
-        localStorage.setItem('token', this.token)
-        localStorage.setItem('user', JSON.stringify(this.user))
-
-        return { success: true }
-      } catch (error) {
-        console.error('Login error:', error)
-        return { 
-          success: false, 
-          message: error.response?.data?.detail || 'Login failed' 
-        }
+    const response = await api.post('/api/login', formData)
+    
+    if (response.data.requires_2fa) {
+      // Redirect to 2FA verification
+      return {
+        success: true,
+        requires_2fa: true,
+        token_2fa: response.data.token_2fa,
+        username: response.data.username
       }
-    },
+    }
 
-    async logout() {
-      this.user = null
-      this.token = null
-      this.isAuthenticated = false
-      
-      // Clear localStorage
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-    },
+    // Normal login
+    this.token = response.data.access_token
+    this.user = {
+      username: response.data.username,
+      role: response.data.role,
+    }
+    this.isAuthenticated = true
+
+    localStorage.setItem('token', this.token)
+    localStorage.setItem('user', JSON.stringify(this.user))
+
+    return { success: true }
+  } catch (error) {
+    return { 
+      success: false, 
+      message: error.response?.data?.detail || 'Login failed' 
+    }
+  }
+},
 
     async checkAuth() {
       // Check if we have a stored token
@@ -92,6 +91,25 @@ export const useAuthStore = defineStore('auth', {
         this.logout()
         throw error
       }
+    },
+
+    logout() {
+      this.user = null
+      this.token = null
+      this.isAuthenticated = false
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+    },
+
+    setToken(token) {
+      this.token = token
+      localStorage.setItem('token', token)
+    },
+
+    setUser(user) {
+      this.user = user
+      this.isAuthenticated = true
+      localStorage.setItem('user', JSON.stringify(user))
     },
   },
 })

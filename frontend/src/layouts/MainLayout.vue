@@ -102,6 +102,15 @@
           </q-item>
         </template>
 
+        <!-- Common Account Settings -->
+        <q-item-label header> Account </q-item-label>
+        <q-item clickable v-ripple to="/2fa">
+          <q-item-section avatar>
+            <q-avatar color="orange" text-color="white" icon="security" />
+          </q-item-section>
+          <q-item-section>Two-Factor Auth</q-item-section>
+        </q-item>
+
         <!-- Common test links
         <q-item-label header> Development </q-item-label>
         <q-item clickable v-ripple to="/api-data">

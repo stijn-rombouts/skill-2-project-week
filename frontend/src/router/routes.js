@@ -4,6 +4,12 @@ const routes = [
     path: '/login',
     component: () => import('pages/LoginPage.vue'),
   },
+
+  // 2FA verification route (public, no layout)
+  {
+    path: '/verify-2fa',
+    component: () => import('pages/Verify2FAPage.vue'),
+  },
   
   // Main layout with authentication
   {
@@ -46,6 +52,12 @@ const routes = [
         path: 'medications',
         component: () => import('pages/MedicationPage.vue'),
         meta: { requiresAuth: true }
+      },
+      // 2FA Management route
+      {
+        path: '2fa',
+        component: () => import('pages/TwoFactorAuthPage.vue'),
+        meta: { requiresAuth: true }
       }
     ],
   },
@@ -59,4 +71,3 @@ const routes = [
 ]
 
 export default routes
-

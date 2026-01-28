@@ -86,32 +86,38 @@ async function onSubmit() {
   loading.value = false
 
   if (result.success) {
-    // $q.notify({
-    //   type: 'positive',
-    //   message: 'Login successful!',
-    //   position: 'top',
-    // })
-    console.log('Login successful')
-    // Wait a bit for the store to update, then redirect based on role
-    await new Promise((resolve) => setTimeout(resolve, 100))
+  console.log('Login successful')
 
-    const role = authStore.userRole
-    if (role === 'mantelzorger') {
-      await router.push('/mantelzorger/dashboard')
-    } else if (role === 'zorgverlener') {
-      await router.push('/zorgverlener/dashboard')
-    } else if (role === 'patient') {
-      await router.push('/home')
-    } else {
-      await router.push('/home')
-    }
-  } else {
-    errorMessage.value = result.message
-    $q.notify({
-      type: 'negative',
-      message: result.message,
-      position: 'top',
+  // If backend says 2FA is required, go to verify page first
+  if (result.requires_2fa) {
+    await router.push({
+      path: '/verify-2fa',
+      query: { token_2fa: result.token_2fa },
     })
+    return
   }
+
+  // Wait a bit for the store to update, then redirect based on role
+  await new Promise((resolve) => setTimeout(resolve, 100))
+
+  const role = authStore.userRole
+  if (role === 'mantelzorger') {
+    await router.push('/mantelzorger/dashboard')
+  } else if (role === 'zorgverlener') {
+    await router.push('/zorgverlener/dashboard')
+  } else if (role === 'patient') {
+    await router.push('/home')
+  } else {
+    await router.push('/home')
+  }
+} else {
+  errorMessage.value = result.message
+  $q.notify({
+    type: 'negative',
+    message: result.message,
+    position: 'top',
+  })
+}
+
 }
 </script>
