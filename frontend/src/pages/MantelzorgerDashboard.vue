@@ -1,5 +1,26 @@
 <template>
-  <q-page class="q-pa-md">
+    <q-page class="flex flex-center column">
+    <!-- <img
+      alt="Quasar logo"
+      src="~assets/quasar-logo-vertical.svg"
+      style="width: 200px; height: 200px"
+    /> -->
+
+    <div class="q-mt-lg text-center">
+      <h3>Welkom, {{ username }}</h3>
+    </div>
+    <div>
+      <q-btn
+        color="primary"
+        label="Ga naar Patiënt Schema"
+        icon="schedule"
+        @click="router.push('/medications')"
+        outline
+        size="xl"
+      />
+    </div>
+  </q-page>
+  <!-- <q-page class="q-pa-md">
     <div class="text-h4 q-mb-md">Mantelzorger Dashboard</div>
     
     <div class="row q-col-gutter-md">
@@ -53,13 +74,15 @@
         </q-card>
       </div>
     </div>
-  </q-page>
+  </q-page> -->
 </template>
 
 <script setup>
 import { computed } from 'vue'
 import { useAuthStore } from 'stores/auth-store'
+import { useRouter } from 'vue-router'
 
 const authStore = useAuthStore()
 const username = computed(() => authStore.user?.username || 'User')
+const router = useRouter()
 </script>
