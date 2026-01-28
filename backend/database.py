@@ -2,6 +2,8 @@ from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, DateT
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+from sqlalchemy.dialects.sqlite import JSON
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./app.db"
 
@@ -26,10 +28,15 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
-    email = Column(String, nullable=True)
+    email = Column(String, unique=True, index=True, nullable=True)
     hashed_password = Column(String, nullable=False)
-    role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
+    role_id = Column(Integer, ForeignKey("roles.id"))
     caregiver_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # 2FA columns
+    is_2fa_enabled = Column(Boolean, default=False, nullable=False)
+    totp_secret = Column(String, nullable=True)
     
     role = relationship("Role", back_populates="users")
     medications = relationship("Medication", back_populates="patient")
@@ -42,15 +49,15 @@ class Medication(Base):
     id = Column(Integer, primary_key=True, index=True)
     patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     name = Column(String, nullable=False)
-    dosage = Column(String, nullable=False)  # e.g., "500mg", "2 tablets"
-    schedule = Column(JSON, nullable=False)  # Weekly schedule: {day: {enabled: bool, times: [HH:MM, ...]}, ...}
-    start_date = Column(DateTime, default=datetime.now, nullable=False)
+    dosage = Column(String, nullable=False)
+    schedule = Column(JSON, nullable=False)
+    start_date = Column(DateTime, default=datetime.utcnow, nullable=False)
     end_date = Column(DateTime, nullable=True)
     notes = Column(Text, nullable=True)
-    is_active = Column(Boolean, default=True)
+    is_active = Column(Boolean, default=True, nullable=False)
     
     patient = relationship("User", back_populates="medications")
-    intakes = relationship("MedicationIntake", back_populates="medication", cascade="all, delete-orphan")
+    intakes = relationship("MedicationIntake", back_populates="medication")
 
 
 class MedicationIntake(Base):
@@ -59,9 +66,9 @@ class MedicationIntake(Base):
     id = Column(Integer, primary_key=True, index=True)
     medication_id = Column(Integer, ForeignKey("medications.id"), nullable=False)
     patient_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    scheduled_time = Column(String, nullable=False)  # HH:MM format
-    taken_at = Column(DateTime, default=datetime.now, nullable=False)
-    status = Column(String, default="taken", nullable=False)  # "taken", "skipped", "missed"
+    scheduled_time = Column(String, nullable=False)
+    taken_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    status = Column(String, default="taken", nullable=False)
     notes = Column(Text, nullable=True)
     
     medication = relationship("Medication", back_populates="intakes")
@@ -77,5 +84,4 @@ def get_db():
 
 
 def init_db():
-    """Initialize database tables"""
     Base.metadata.create_all(bind=engine)
