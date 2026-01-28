@@ -6,6 +6,12 @@ from datetime import timedelta, datetime, time
 from pydantic import BaseModel
 from typing import Optional
 from apscheduler.schedulers.background import BackgroundScheduler
+from email.mime.text import MIMEText
+import smtplib
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from database import init_db, get_db, User, Role, Medication, MedicationIntake
 from auth import (
@@ -32,6 +38,35 @@ scheduler = BackgroundScheduler()
 notified_missed_medications = set()  # Track which missed medications we've already notified about
 check_missed_medications_interval = 20  # seconds
 check_missed_medications_grace_period = 5  # minutes
+
+
+def send_alert_email(to_email: str, patient_name: str, medication_name: str):
+    """Send an alert email to the caregiver about a missed medication"""
+    subject = f"LET OP: {patient_name} heeft medicatie nog niet ingenomen"
+    
+    body = (
+        f"Dag,\n\n"
+        f"Dit is een herinnering voor {patient_name}.\n\n"
+        f"De medicatie '{medication_name}' is nog niet als 'ingenomen' gemeld.\n"
+        f"Controleer of de medicatie alsnog ingenomen kan worden.\n\n"
+        f"Tijdstip melding: {datetime.now().strftime('%H:%M')}"
+    )
+    
+    sender = os.getenv("EMAIL_ADDRESS")
+    password = os.getenv("EMAIL_PASSWORD")
+
+    try:
+        msg = MIMEText(body)
+        msg['Subject'], msg['From'], msg['To'] = subject, sender, to_email
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+            server.starttls()
+            server.login(sender, password)
+            server.send_message(msg)
+        print(f"✅ Email successfully sent to {to_email}")
+        return True
+    except Exception as e:
+        print(f"❌ Email failed to {to_email}: {e}")
+        return False
 
 
 def check_missed_medications():
@@ -76,17 +111,18 @@ def check_missed_medications():
                                 if not intake and notification_key not in notified_missed_medications:
                                     # Medication was missed!
                                     patient = db.query(User).filter(User.id == medication.patient_id).first()
+                                    caregiver = patient.caregiver if patient else None
                                     
                                     print(f"[MISSED MEDICATION ALERT] Patient: {patient.username}, "
                                           f"Medication: {medication.name} ({medication.dosage}), "
                                           f"Scheduled time: {time_str}, Current time: {now.strftime('%H:%M')}")
                                     
-                                    # TODO: Send email notification here
-                                    # send_email(
-                                    #     to=patient.email,
-                                    #     subject=f"Missed Medication: {medication.name}",
-                                    #     body=f"You missed your {medication.name} scheduled at {time_str}"
-                                    # )
+                                    # Send email notification to caregiver if available
+                                    if caregiver and caregiver.email:
+                                        print(f"📧 Sending alert email to {caregiver.email}")
+                                        send_alert_email(caregiver.email, patient.username, medication.name)
+                                    else:
+                                        print(f"⚠️ No caregiver email found for patient {patient.username}")
                                     
                                     # Mark as notified
                                     notified_missed_medications.add(notification_key)
@@ -154,18 +190,21 @@ async def startup_event():
         if not mantelzorger1:
             mantelzorger1 = User(
                 username="mantelzorger1",
+                email="jarne.bouamoud@hotmail.com",  # Add email for caregiver
                 hashed_password=get_password_hash("password123"),  # Default password
                 role_id=mantelzorger_role.id
             )
             db.add(mantelzorger1)
             db.commit()
+            db.refresh(mantelzorger1)
         
         patient1 = db.query(User).filter(User.username == "patient1").first()
         if not patient1:
             patient1 = User(
                 username="patient1",
                 hashed_password=get_password_hash("password123"),  # Default password
-                role_id=patient_role.id
+                role_id=patient_role.id,
+                caregiver_id=mantelzorger1.id  # Link patient to caregiver
             )
             db.add(patient1)
             db.commit()
