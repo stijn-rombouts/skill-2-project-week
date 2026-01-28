@@ -237,27 +237,28 @@ async function filterCurrentMedications() {
 
 async function speakMedicationReminder(medicationName, dosage, scheduledTime) {
   try {
-    // const hours = scheduledTime.split(':')[0]
-    // const minutes = scheduledTime.split(':')[1]
+    const hours = scheduledTime.split(':')[0]
+    const minutes = scheduledTime.split(':')[1]
     
-    // await TextToSpeech.speak({
-    //   text: `Het is tijd om uw medicatie in te nemen: ${medicationName}.  Dosering: ${dosage}. Gepland om ${hours} uur en ${minutes} minuten. Zeg medicatie ingenomen als u de medicatie heeft ingenomen.`,
-    //   lang: 'nl-BE',
-    //   rate: 1.0,
-    //   pitch: 1.0,
-    //   volume: 1.0,
-    //   category: 'ambient'
-    // })
     console.log('Speaking medication reminder for:', medicationName)
     console.log(`Het is tijd om uw medicatie in te nemen: ${medicationName}.  Dosering: ${dosage}. Gepland om ${scheduledTime}.`)
+    
     await TextToSpeech.speak({
-      text: `Zeg medicatie ingenomen als u de medicatie heeft ingenomen.`,
+      text: `Het is tijd om uw medicatie in te nemen: ${medicationName}.  Dosering: ${dosage}. Gepland om ${hours} uur en ${minutes} minuten. Zeg medicatie ingenomen als u de medicatie heeft ingenomen.`,
       lang: 'nl-BE',
       rate: 1.0,
       pitch: 1.0,
       volume: 1.0,
       category: 'ambient'
     })
+    // await TextToSpeech.speak({
+    //   text: `Zeg medicatie ingenomen als u de medicatie heeft ingenomen.`,
+    //   lang: 'nl-BE',
+    //   rate: 1.0,
+    //   pitch: 1.0,
+    //   volume: 1.0,
+    //   category: 'ambient'
+    // })
     
     console.log('TTS finished for:', medicationName)
     
