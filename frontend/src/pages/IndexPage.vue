@@ -78,7 +78,7 @@ onMounted(async () => {
         
         // Navigate when notification is tapped
         if (notification.notification.extra?.action === 'view_medication') {
-          router.push('/patient-take-medication')
+          router.push('/patient/take-medication')
         }
       }
     )
