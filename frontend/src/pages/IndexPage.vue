@@ -7,9 +7,19 @@
     /> -->
 
     <div class="q-mt-lg text-center">
-      <h3>Patient Home Pagina</h3>
+      <h3>Welkom, {{ username }}</h3>
     </div>
-    <div class="q-mt-lg">
+    <div>
+      <q-btn
+        color="primary"
+        label="Toon Mijn Schema"
+        icon="schedule"
+        @click="router.push('/patient/schedule')"
+        outline
+        size="xl"
+      />
+    </div>
+    <div v-if="isDevMode"><div class="q-mt-lg">
       <q-btn
         color="primary"
         label="Enable Notifications"
@@ -30,7 +40,8 @@
 
     <div v-if="statusMessage" class="q-mt-md text-center">
       {{ statusMessage }}
-    </div>
+    </div></div>
+    
   </q-page>
 </template>
 
@@ -41,11 +52,17 @@ import { Capacitor } from '@capacitor/core'
 // import { BackgroundRunner } from '@capacitor/background-runner'
 import { api } from 'src/boot/axios'
 import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useAuthStore } from 'stores/auth-store'
+
+const authStore = useAuthStore()
+const username = computed(() => authStore.user?.username || 'User')
 
 const router = useRouter()
 const isLoading = ref(false)
 const isEnabled = ref(false)
 const statusMessage = ref('')
+const isDevMode = ref(false)
 
 let notificationListener = null
 

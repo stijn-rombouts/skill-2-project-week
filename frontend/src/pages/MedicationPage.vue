@@ -1,12 +1,12 @@
 <template>
   <q-page class="q-pa-md">
     <div class="row items-center q-mb-lg">
-      <h4 class="q-my-none">Patient Medications</h4>
+      <h4 class="q-my-none">Patiënt Medicatie</h4>
       <q-space />
       <q-btn
         v-if="selectedPatient"
         icon="download"
-        label="Export as PDF"
+        label="Exporteer als PDF"
         color="primary"
         @click="exportToPDF"
         class="q-mr-md"
@@ -16,7 +16,7 @@
         :options="patients"
         option-value="id"
         option-label="username"
-        label="Select Patient"
+        label="Selecteer Patiënt"
         outlined
         dense
         style="min-width: 200px"
@@ -61,16 +61,24 @@ const fetchPatients = async () => {
 }
 
 const formatSchedule = (schedule) => {
-  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+  const daysOfWeek = [
+    { en: 'Monday', nl: 'Maandag' },
+    { en: 'Tuesday', nl: 'Dinsdag' },
+    { en: 'Wednesday', nl: 'Woensdag' },
+    { en: 'Thursday', nl: 'Donderdag' },
+    { en: 'Friday', nl: 'Vrijdag' },
+    { en: 'Saturday', nl: 'Zaterdag' },
+    { en: 'Sunday', nl: 'Zondag' }
+  ]
   const scheduledDays = []
   
   daysOfWeek.forEach(day => {
-    if (schedule[day]?.enabled && schedule[day].times.length > 0) {
-      scheduledDays.push(`${day}: ${schedule[day].times.join(', ')}`)
+    if (schedule[day.en]?.enabled && schedule[day.en].times.length > 0) {
+      scheduledDays.push(`${day.nl}: ${schedule[day.en].times.join(', ')}`)
     }
   })
   
-  return scheduledDays.length > 0 ? scheduledDays.join('\n') : 'No schedule'
+  return scheduledDays.length > 0 ? scheduledDays.join('\n') : 'Geen schema'
 }
 
 const exportToPDF = async () => {
@@ -89,12 +97,12 @@ const exportToPDF = async () => {
     
     // Add title
     pdf.setFontSize(16)
-    pdf.text('MEDICATION PRESCRIPTION', 20, 20)
+    pdf.text('MEDICATIE VOORSCHRIFT', 20, 20)
     
     // Add patient info
     pdf.setFontSize(11)
-    pdf.text(`Patient: ${selectedPatient.value.username}`, 20, 35)
-    pdf.text(`Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, 20, 42)
+    pdf.text(`Patiënt: ${selectedPatient.value.username}`, 20, 35)
+    pdf.text(`Datum: ${new Date().toLocaleDateString('nl-NL', { year: 'numeric', month: 'long', day: 'numeric' })}`, 20, 42)
     
     // Create table data
     const tableData = medications.map(med => [
@@ -102,12 +110,12 @@ const exportToPDF = async () => {
       med.dosage,
       formatSchedule(med.schedule),
       med.notes || '-',
-      med.is_active ? 'Active' : 'Inactive'
+      med.is_active ? 'Actief' : 'Inactief'
     ])
 
     // Add table
     pdf.autoTable({
-      head: [['Medication', 'Dosage', 'Schedule', 'Notes', 'Status']],
+      head: [['Medicatie', 'Dosering', 'Schema', 'Notities', 'Status']],
       body: tableData,
       startY: 50,
       theme: 'grid',

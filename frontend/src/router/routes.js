@@ -15,7 +15,7 @@ const routes = [
       { path: 'home', component: () => import('pages/IndexPage.vue') },
       { path: 'api-data', component: () => import('pages/ApiDataPage.vue') },
       { path: 'capacitor', component: () => import('pages/CapacitorPage.vue') },
-      { path: 'patient-take-medication', component: () => import('pages/PatientTakeMedicationPage.vue') },
+      
       
       // Mantelzorger routes
       { 
@@ -26,11 +26,15 @@ const routes = [
       
       // Patient routes
       { 
-        path: 'patient/dashboard', 
-        component: () => import('pages/PatientDashboard.vue'),
+        path: 'patient/schedule', 
+        component: () => import('pages/PatientSchedulePage.vue'),
         meta: { requiresAuth: true, role: 'patient' }
       },
-      
+      {
+        path: 'patient/take-medication', 
+        component: () => import('pages/PatientTakeMedicationPage.vue'),
+        meta: { requiresAuth: true, role: 'patient' }
+      },
       // Zorgverlener routes
       { 
         path: 'zorgverlener/dashboard', 

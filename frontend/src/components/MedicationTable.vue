@@ -1,12 +1,12 @@
 <template>
   <div class="q-pa-md">
     <div class="row items-center q-mb-md">
-      <h5 class="q-my-none">Medications</h5>
+      <h5 class="q-my-none">Medicatie</h5>
       <q-space />
       <q-btn
         v-if="isCaregiver"
         color="primary"
-        label="Add Medication"
+        label="Medicatie Toevoegen"
         icon="add"
         @click="showAddDialog = true"
       />
@@ -16,16 +16,18 @@
     <q-table
       :rows="medications"
       :columns="columns"
+      :pagination="pagination"
       row-key="id"
       flat
       bordered
       class="q-mt-md"
+      hide-bottom
     >
       <template v-slot:body-cell-is_active="props">
         <q-td :props="props">
           <q-badge
             :color="props.row.is_active ? 'green' : 'grey'"
-            :label="props.row.is_active ? 'Active' : 'Inactive'"
+            :label="props.row.is_active ? 'Actief' : 'Inactief'"
           />
         </q-td>
       </template>
@@ -35,7 +37,7 @@
           <div class="text-caption">
             <div v-for="day in daysOfWeek" :key="day">
               <span v-if="props.row.schedule[day]?.enabled" class="text-weight-bold">
-                {{ day.substring(0, 3) }}: {{ props.row.schedule[day].times.join(', ') }}
+                {{ getDutchDayName(day).substring(0, 3) }}: {{ props.row.schedule[day].times.join(', ') }}
               </span>
             </div>
           </div>
@@ -71,7 +73,7 @@
       <q-card style="width: 85%; max-width: 900px">
         <q-card-section class="row items-center q-pb-none">
           <div class="text-h6">
-            {{ editingId ? 'Edit Medication' : 'Add Medication' }}
+            {{ editingId ? 'Medicatie Bewerken' : 'Medicatie Toevoegen' }}
           </div>
           <q-space />
           <q-btn icon="close" flat round dense v-close-popup />
@@ -81,21 +83,21 @@
           <div class="q-gutter-md">
             <q-input
               v-model="form.name"
-              label="Medication Name"
+              label="Medicatie Naam"
               outlined
               dense
-              :rules="[(val) => !!val || 'Name is required']"
+              :rules="[(val) => !!val || 'Naam is verplicht']"
             />
             <q-input
               v-model="form.dosage"
-              label="Dosage (e.g., 500mg, 2 tablets)"
+              label="Dosering (bijv. 500mg, 2 tabletten)"
               outlined
               dense
-              :rules="[(val) => !!val || 'Dosage is required']"
+              :rules="[(val) => !!val || 'Dosering is verplicht']"
             />
             
             <!-- Weekly Schedule Section -->
-            <div class="text-subtitle2 q-mt-md">Weekly Schedule</div>
+            <div class="text-subtitle2 q-mt-md">Wekelijks Schema</div>
             <div class="row q-gutter-md">
               <!-- Column 1: Monday to Thursday -->
               <div class="col">
@@ -104,7 +106,7 @@
                     <div class="row items-center q-mb-sm">
                       <q-checkbox
                         v-model="form.schedule[day].enabled"
-                        :label="day"
+                        :label="getDutchDayName(day)"
                       />
                     </div>
                     
@@ -130,7 +132,7 @@
                       
                       <q-btn
                         icon="add"
-                        label="Add Time"
+                        label="Voeg Tijd Toe"
                         size="sm"
                         color="primary"
                         flat
@@ -148,7 +150,7 @@
                     <div class="row items-center q-mb-sm">
                       <q-checkbox
                         v-model="form.schedule[day].enabled"
-                        :label="day"
+                        :label="getDutchDayName(day)"
                       />
                     </div>
                     
@@ -174,7 +176,7 @@
                       
                       <q-btn
                         icon="add"
-                        label="Add Time"
+                        label="Voeg Tijd Toe"
                         size="sm"
                         color="primary"
                         flat
@@ -188,7 +190,7 @@
             
             <q-input
               v-model="form.notes"
-              label="Notes (optional)"
+              label="Notities (optioneel)"
               outlined
               dense
               type="textarea"
@@ -196,15 +198,15 @@
             />
             <q-checkbox
               v-model="form.is_active"
-              label="Active"
+              label="Actief"
             />
           </div>
         </q-card-section>
 
         <q-card-actions align="right">
-          <q-btn label="Cancel" color="grey" v-close-popup />
+          <q-btn label="Annuleren" color="grey" v-close-popup />
           <q-btn
-            label="Save"
+            label="Opslaan"
             color="primary"
             @click="saveMedication"
             :loading="loading"
@@ -283,25 +285,25 @@ const columns = computed(() => {
   const cols = [
     {
       name: 'name',
-      label: 'Medication',
+      label: 'Medicatie Naam',
       field: 'name',
       align: 'left'
     },
     {
       name: 'dosage',
-      label: 'Dosage',
+      label: 'Dosering',
       field: 'dosage',
       align: 'left'
     },
     {
       name: 'schedule',
-      label: 'Schedule',
+      label: 'Schema',
       field: 'schedule',
       align: 'left'
     },
     {
       name: 'notes',
-      label: 'Notes',
+      label: 'Notities',
       field: 'notes',
       align: 'left'
     },
@@ -316,13 +318,18 @@ const columns = computed(() => {
   if (isCaregiver.value) {
     cols.push({
       name: 'actions',
-      label: 'Actions',
+      label: 'Acties',
       field: 'actions',
       align: 'center'
     })
   }
 
   return cols
+})
+
+const pagination = ref({
+  page: 1,
+  rowsPerPage: 50,
 })
 
 const fetchMedications = async () => {
@@ -431,6 +438,19 @@ const addTime = (day) => {
 
 const removeTime = (day, index) => {
   form.value.schedule[day].times.splice(index, 1)
+}
+
+const getDutchDayName = (englishDay) => {
+  const dutchDays = {
+    'Monday': 'Maandag',
+    'Tuesday': 'Dinsdag',
+    'Wednesday': 'Woensdag',
+    'Thursday': 'Donderdag',
+    'Friday': 'Vrijdag',
+    'Saturday': 'Zaterdag',
+    'Sunday': 'Zondag'
+  }
+  return dutchDays[englishDay] || englishDay
 }
 
 onMounted(() => {
