@@ -26,11 +26,14 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, nullable=True)
     hashed_password = Column(String, nullable=False)
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
+    caregiver_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     
     role = relationship("Role", back_populates="users")
     medications = relationship("Medication", back_populates="patient")
+    caregiver = relationship("User", remote_side="User.id", foreign_keys="User.caregiver_id", viewonly=True)
 
 
 class Medication(Base):
