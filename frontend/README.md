@@ -1,4 +1,4 @@
-# Quasar App (skill-2-project-week)
+# MedReminder (skill-2-project-week)
 
 A Quasar Project
 
