@@ -1,6 +1,6 @@
 {
   "appId": "org.capacitor.quasar.app",
-  "appName": "Quasar App",
+  "appName": "MedReminder",
   "webDir": "www",
   "plugins": {
     "SystemBars": {
